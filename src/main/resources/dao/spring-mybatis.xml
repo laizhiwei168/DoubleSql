@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+  http://www.springframework.org/schema/tx
+  http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+  http://www.springframework.org/schema/aop
+  http://www.springframework.org/schema/aop/spring-aop-4.3.xsd">
+
+
+	<!-- oracle数据库 -->
+	<!-- <bean id="dataSource_first"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName" value="${jdbc.driver}" />
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+	</bean> -->
+	<!-- sqlite数据库 -->
+	<!-- <bean id="dateSource_second"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName" value="${jdbc.driver2}" />
+		<property name="url" value="${jdbc.url2}" />
+		<property name="username" value="${jdbc.username2}" />
+		<property name="password" value="${jdbc.password2}" />
+	</bean> -->
+	
+	<!-- 配置数据源，使用的是alibaba的Druid(德鲁伊)数据源 -->
+	<bean name="dataSource_first" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <property name="url" value="${url}" />
+        <property name="username" value="${name}" />
+        <property name="password" value="${password}" />
+        <!-- 初始化连接大小 -->
+        <property name="initialSize" value="0" />
+        <!-- 连接池最大使用连接数量 -->
+        <property name="maxActive" value="20" />
+        <!-- 连接池最大空闲 -->
+        <property name="maxIdle" value="20" />
+        <!-- 连接池最小空闲 -->
+        <property name="minIdle" value="0" />
+        <!-- 获取连接最大等待时间 -->
+        <property name="maxWait" value="60000" />
+    </bean>
+	
+	<!-- 配置数据源，使用的是alibaba的Druid(德鲁伊)数据源 -->
+	<bean name="dateSource_second" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <property name="url" value="${url2}" />
+        <property name="username" value="${name2}" />
+        <property name="password" value="${password2}" />
+        <!-- 初始化连接大小 -->
+        <property name="initialSize" value="0" />
+        <!-- 连接池最大使用连接数量 -->
+        <property name="maxActive" value="20" />
+        <!-- 连接池最大空闲 -->
+        <property name="maxIdle" value="20" />
+        <!-- 连接池最小空闲 -->
+        <property name="minIdle" value="0" />
+        <!-- 获取连接最大等待时间 -->
+        <property name="maxWait" value="60000" />
+    </bean>
+	
+	<!-- 下面的是切换数据库的自定义类 -->
+	<bean id="dataSource" class="com.cimc.senheyun.utils.dao.MultipleDataSource">
+	<!-- 默认使用sqlite数据库 -->
+		<property name="defaultTargetDataSource" ref="dateSource_second"></property>
+		<property name="targetDataSources">
+			<map>
+				<entry key="dataSource_first" value-ref="dataSource_first"></entry>
+				<entry key="dateSource_second" value-ref="dateSource_second"></entry>
+			</map>
+		</property>
+	</bean>
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"></property>
+		<property name="mapperLocations" value="classpath:dao/mapper/*.xml" />
+		<property name="typeAliasesPackage" value="com.cimc.senheyun.po" />
+		<property name="configLocation" value="classpath:dao/mybatis-config.xml" />
+	</bean>
+ 
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer"	>
+ <!-- p:basePackage="com.shiyanlou.dao" p:sqlSessionFactoryBeanName="sqlSessionFactory" -->
+ 	<property name="basePackage" value="com.cimc.senheyun.dao"/> <!-- com.xxx.ssm.mapper -->
+    <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+	</bean>
+ 
+	
+	
+	<!-- 切面 -->
+	<!-- 这里使用扫描方式来拦截service服务赋值给数据源标识，就是你使用数据源1还是数据源2 -->
+	<aop:aspectj-autoproxy></aop:aspectj-autoproxy>
+	<bean id="dataSourceAspect" class="com.cimc.senheyun.utils.dao.DataSourceAspect"></bean>
+		<aop:config>
+			<aop:aspect ref="dataSourceAspect">
+				<!-- 拦截所有service方法，在dao层添加注解  service-->
+				<aop:pointcut expression="execution(* com.cimc.senheyun.service..*.*(..))" id="dataSourcePointcut"/>
+				<aop:before method="intercept" pointcut-ref="dataSourcePointcut"/>
+			</aop:aspect>
+		</aop:config>
+	<!-- 这里时赋值后数据源值，再get获取数据源 -->
+	<bean id="txManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+ 
+	<tx:annotation-driven transaction-manager="txManager" />
+</beans>
